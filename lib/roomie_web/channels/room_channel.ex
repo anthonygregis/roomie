@@ -34,6 +34,9 @@ defmodule RoomieWeb.RoomChannel do
       joined_at: DateTime.utc_now() |> DateTime.to_iso8601()
     })
 
+    # Push the current presence state to the newly-joined client
+    push(socket, "presence_state", Presence.list(socket))
+
     push(socket, "messages:recent", %{
       messages:
         socket.assigns.room_id

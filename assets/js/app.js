@@ -48,17 +48,21 @@ Hooks.RoomChannel = {
     const formEl = document.getElementById("msg-form")
     const inputEl = document.getElementById("msg-input")
 
-    const renderRoster = (presences) => {
+    const renderRoster = () => {
       rosterEl.innerHTML = ""
+
+      // list() returns an array of entries: [{key, metas}, ...]
+      const entries = this.presence.list((key, {metas}) => ({key, metas}))
       
-      Object.keys(presences).sort().forEach((key) => {
-        const metas = presences[key].metas || []
-        const joinedAt = metas[0]?.joined_at || ""
-        const li = document.createElement("li")
-        
-        li.textContent = joinedAt ? `${key} (joined ${joinedAt})` : key
-        rosterEl.appendChild(li)
-      })
+      entries
+        .sort((a, b) => a.key.localeCompare(b.key))
+        .forEach(({key, metas}) => {
+          const joinedAt = metas[0]?.joined_at || ""
+          const li = document.createElement("li")
+          
+          li.textContent = joinedAt ? `${key} (joined ${joinedAt})` : key
+          rosterEl.appendChild(li)
+        })
     }
 
     const appendMessage = (msg) => {
@@ -70,7 +74,7 @@ Hooks.RoomChannel = {
     }
 
     // Presence sync triggers whenever state changes (join/leave)
-    this.presence.onSync(() => renderRoster(this.presence.list()))
+    this.presence.onSync(renderRoster)
 
     // Server pushes the most recent messages after join
     this.channel.on("messages:recent", (payload) => {
