@@ -5,15 +5,20 @@ defmodule RoomieWeb.RoomChannel do
   alias RoomieWeb.Presence
 
   @impl true
-  def join("room:" <> code, %{"name" => name}, socket) do
+  def join("room:" <> code, %{"name" => name, "client_id" => client_id}, socket) do
     name =
       name
       |> to_string()
       |> String.trim()
       |> String.slice(0, 30)
 
-    if name == "" do
-      {:error, %{reason: "name_required"}}
+    client_id =
+      client_id
+      |> to_string()
+      |> String.trim()
+
+    if name == "" or client_id == "" do
+      {:error, %{reason: "invalid_join"}}
     else
       room = Rooms.get_or_create_room!(code)
 
@@ -21,6 +26,7 @@ defmodule RoomieWeb.RoomChannel do
         socket
         |> assign(:room_id, room.id)
         |> assign(:room_code, room.code)
+        |> assign(:client_id, client_id)
         |> assign(:name, name)
 
       send(self(), :after_join)
@@ -30,8 +36,12 @@ defmodule RoomieWeb.RoomChannel do
 
   @impl true
   def handle_info(:after_join, socket) do
-    Presence.track(socket, socket.assigns.name, %{
-      joined_at: DateTime.utc_now() |> DateTime.to_iso8601()
+    now = DateTime.utc_now() |> DateTime.to_iso8601()
+
+    Presence.track(socket, socket.assigns.client_id, %{
+      name: socket.assigns.name,
+      joined_at: now,
+      last_active_at: now
     })
 
     # Push the current presence state to the newly-joined client
@@ -72,6 +82,10 @@ defmodule RoomieWeb.RoomChannel do
         body: msg.body,
         at: DateTime.from_naive!(msg.inserted_at, "Etc/UTC") |> DateTime.to_iso8601()
       }
+
+      Presence.update(socket, socket.assigns.client_id, fn meta ->
+        Map.put(meta, :last_active_at, DateTime.utc_now() |> DateTime.to_iso8601())
+      end)
 
       broadcast!(socket, "message:new", payload)
       {:reply, {:ok, %{sent: true}}, socket}

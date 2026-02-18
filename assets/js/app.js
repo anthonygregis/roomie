@@ -31,6 +31,13 @@ Hooks.RoomChannel = {
   mounted() {
     const roomCode = this.el.dataset.roomCode
     const name = this.el.dataset.name
+    const clientId = localStorage.getItem("roomie_client_id") || 
+    (() => {
+      const v = crypto.randomUUID()
+      localStorage.setItem("roomie_client_id", v)
+      return v
+    })()
+
     if (!name) return
 
     // Connecto to our custom channel socket endpoint: /socket
@@ -38,7 +45,7 @@ Hooks.RoomChannel = {
     this.socket.connect()
 
     // Join the topic: room:<code>
-    this.channel = this.socket.channel(`room:${roomCode}`, {name})
+    this.channel = this.socket.channel(`room:${roomCode}`, {name, client_id: clientId})
 
     // Presence is a client helper that merges a presence_state + presence_diff
     this.presence = new Presence(this.channel)
@@ -47,6 +54,13 @@ Hooks.RoomChannel = {
     const messagesEl = document.getElementById("messages")
     const formEl = document.getElementById("msg-form")
     const inputEl = document.getElementById("msg-input")
+
+    const statusFromLastActive = (iso) => {
+      if (!iso) return "away"
+
+      const ms = Date.now() - new Date(iso).getTime()
+      return ms < 60_000 ? "active" : "away"
+    }
 
     const renderRoster = () => {
       rosterEl.innerHTML = ""
@@ -57,10 +71,12 @@ Hooks.RoomChannel = {
       entries
         .sort((a, b) => a.key.localeCompare(b.key))
         .forEach(({key, metas}) => {
-          const joinedAt = metas[0]?.joined_at || ""
+          const meta = metas?.[0] || {}
+          const displayName = meta.name || key
+          const status = statusFromLastActive(meta.last_active_at || meta.joined_at)
+
           const li = document.createElement("li")
-          
-          li.textContent = joinedAt ? `${key} (joined ${joinedAt})` : key
+          li.textContent = `${displayName} · ${status}`
           rosterEl.appendChild(li)
         })
     }
@@ -85,6 +101,11 @@ Hooks.RoomChannel = {
     // Server broadcasts each new message
     this.channel.on("message:new", appendMessage)
 
+    // Start a timer to update presence status every 30 seconds
+    this.rosterTimer = setInterval(() => {
+      this.presence.update()
+    }, 10_000)
+
     // Join the channel
     this.channel.join()
       .receive("ok", () => console.log("Joined room", roomCode))
@@ -100,9 +121,15 @@ Hooks.RoomChannel = {
       this.channel.push("message:new", {body})
       inputEl.value = ""
     })
+
+    window.addEventListener("beforeunload", () => {
+      try { this.channel?.leave() } catch {}
+      try { this.socket?.disconnect() } catch {}
+    })
   },
 
   destroyed() {
+    if (this.rosterTimer) clearInterval(this.rosterTimer)
     if (this.channel) this.channel.leave()
     if (this.socket) this.socket.disconnect()
   }
