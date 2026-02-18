@@ -1,0 +1,32 @@
+<div class="mx-auto max-w-4xl p-6">
+  <div class="flex items-baseline justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">Room: <%= @code %></h1>
+      <p class="text-sm text-zinc-500">You are <%= @name %></p>
+    </div>
+    <a class="text-sm underline" href="/">Change room</a>
+  </div>
+
+  <div
+    id="room-root"
+    phx-hook="RoomChannel"
+    data-room-code={@code}
+    data-name={@name}
+    class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6"
+  >
+    <div class="rounded border p-3">
+      <h2 class="font-semibold">Online</h2>
+      <ul id="roster" class="mt-2 text-sm space-y-1"></ul>
+    </div>
+
+    <div class="rounded border p-3 md:col-span-2">
+      <h2 class="font-semibold">Messages</h2>
+      <div id="messages" class="mt-2 h-80 overflow-auto text-sm space-y-2"></div>
+
+      <form id="msg-form" class="mt-3 flex gap-2">
+        <input id="msg-input" class="flex-1 rounded border p-2" placeholder="Say something" />
+        <button class="rounded bg-black text-white px-3 py-2 text-sm" type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+</div>

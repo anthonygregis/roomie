@@ -13,8 +13,8 @@ defmodule Roomie.Rooms.Message do
   @doc false
   def changeset(message, attrs) do
     message
-    |> cast(attrs, [:name, :body])
-    |> validate_required([:name, :body])
+    |> cast(attrs, [:room_id, :name, :body])
+    |> validate_required([:room_id, :name, :body])
     |> validate_length(:name, min: 1, max: 30)
     |> validate_length(:body, min: 1, max: 500)
     |> foreign_key_constraint(:room_id)

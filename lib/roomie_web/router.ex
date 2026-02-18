@@ -17,7 +17,8 @@ defmodule RoomieWeb.Router do
   scope "/", RoomieWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", JoinLive, :index
+    live "/r/:code", RoomLive, :show
   end
 
   # Other scopes may use custom stacks.
