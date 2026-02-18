@@ -20,16 +20,95 @@
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
-import {Socket} from "phoenix"
+import {Socket, Presence} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/roomie"
 import topbar from "../vendor/topbar"
+
+let Hooks = {}
+
+Hooks.RoomChannel = {
+  mounted() {
+    const roomCode = this.el.dataset.roomCode
+    const name = this.el.dataset.name
+    if (!name) return
+
+    // Connecto to our custom channel socket endpoint: /socket
+    this.socket = new Socket("/socket", {params: {}})
+    this.socket.connect()
+
+    // Join the topic: room:<code>
+    this.channel = this.socket.channel(`room:${roomCode}`, {name})
+
+    // Presence is a client helper that merges a presence_state + presence_diff
+    this.presence = new Presence(this.channel)
+
+    const rosterEl = document.getElementById("roster")
+    const messagesEl = document.getElementById("messages")
+    const formEl = document.getElementById("msg-form")
+    const inputEl = document.getElementById("msg-input")
+
+    const renderRoster = (presences) => {
+      rosterEl.innerHTML = ""
+      
+      Object.keys(presences).sort().forEach((key) => {
+        const metas = presences[key].metas || []
+        const joinedAt = metas[0]?.joined_at || ""
+        const li = document.createElement("li")
+        
+        li.textContent = joinedAt ? `${key} (joined ${joinedAt})` : key
+        rosterEl.appendChild(li)
+      })
+    }
+
+    const appendMessage = (msg) => {
+      const div = document.createElement("div")
+      
+      div.innerHTML = `<span class="text-zinc-500">${msg.at}</span> <b>${msg.name}</b>: ${msg.body}`
+      messagesEl.appendChild(div)
+      messagesEl.scrollTop = messagesEl.scrollHeight
+    }
+
+    // Presence sync triggers whenever state changes (join/leave)
+    this.presence.onSync(() => renderRoster(this.presence.list()))
+
+    // Server pushes the most recent messages after join
+    this.channel.on("messages:recent", (payload) => {
+      messagesEl.innerHTML = ""
+      payload.messages.forEach(appendMessage)
+    })
+
+    // Server broadcasts each new message
+    this.channel.on("message:new", appendMessage)
+
+    // Join the channel
+    this.channel.join()
+      .receive("ok", () => console.log("Joined room", roomCode))
+      .receive("error", (resp) => console.error("Failed to join room", resp))
+
+    // Send message from input
+    formEl.addEventListener("submit", (e) => {
+      e.preventDefault()
+
+      const body = inputEl.value.trim()
+      if (!body) return
+
+      this.channel.push("message:new", {body})
+      inputEl.value = ""
+    })
+  },
+
+  destroyed() {
+    if (this.channel) this.channel.leave()
+    if (this.socket) this.socket.disconnect()
+  }
+}
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {...colocatedHooks, ...Hooks},
 })
 
 // Show progress bar on live navigation and form submits
