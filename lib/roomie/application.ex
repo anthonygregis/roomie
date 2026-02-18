@@ -12,6 +12,10 @@ defmodule Roomie.Application do
       Roomie.Repo,
       {DNSCluster, query: Application.get_env(:roomie, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Roomie.PubSub},
+
+      # Start Presence so ETS tables + trackers exist
+      RoomieWeb.Presence,
+
       # Start a worker by calling: Roomie.Worker.start_link(arg)
       # {Roomie.Worker, arg},
       # Start to serve requests, typically the last entry
