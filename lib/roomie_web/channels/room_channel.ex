@@ -60,7 +60,8 @@ defmodule RoomieWeb.RoomChannel do
         end)
     })
 
-    broadcast!(socket, "system:join", %{name: socket.assigns.name})
+    broadcast_system(socket, "#{socket.assigns.name} has joined the room")
+
     {:noreply, socket}
   end
 
@@ -90,5 +91,48 @@ defmodule RoomieWeb.RoomChannel do
       broadcast!(socket, "message:new", payload)
       {:reply, {:ok, %{sent: true}}, socket}
     end
+  end
+
+  require Logger
+
+  @impl true
+  def terminate(reason, socket) do
+    name = socket.assigns[:name]
+
+    Logger.debug("terminate room=#{socket.topic} name=#{inspect(name)} reason=#{inspect(reason)}")
+
+    if name do
+      # After this process dies, Presence will drop this meta.
+      # But terminate runs before presence cleanup fully propagates.
+      # So we can defer for a little to check if metas remain with this name.
+      spawn(fn ->
+        Process.sleep(75)
+
+        presences = Presence.list(socket)
+
+        still_here? =
+          presences
+          |> Map.values()
+          |> Enum.any?(fn %{metas: metas} ->
+            Enum.any?(metas, fn meta -> meta.name == name end)
+          end)
+
+        if not still_here? do
+          broadcast_system(socket, "#{name} has left the room")
+        end
+      end)
+    end
+
+    :ok
+  end
+
+  defp broadcast_system(socket, text) do
+    payload = %{
+      name: "System",
+      body: text,
+      at: DateTime.utc_now() |> DateTime.to_iso8601()
+    }
+
+    broadcast!(socket, "message:new", payload)
   end
 end
