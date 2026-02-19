@@ -1,18 +1,21 @@
 # Roomie
 
-To start your Phoenix server:
+Roomie is a real-time room coordination demo built with Elixir and Phoenix.
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+It uses:
+- Phoenix Channels for realtime messaging (topics like `room:lobby`)
+- Phoenix Presence for online user tracking per room
+- Ecto + PostgreSQL for message persistence
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+Ephemeral state (online users) is tracked via Presence.
+Durable state (rooms and messages) is stored in Postgres.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Run locally
 
-## Learn more
+Requires a PostgreSQL server running locally, change the `config/dev.exs` to match your local environment configuration.
 
-* Official website: https://www.phoenixframework.org/
-* Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
-* Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix
+```bash
+mix ecto.create
+mix ecto.migrate
+mix phx.server
+```
