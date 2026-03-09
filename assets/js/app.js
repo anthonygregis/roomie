@@ -62,6 +62,37 @@ Hooks.RoomChannel = {
       return ms < 60_000 ? "active" : "away"
     }
 
+    const formatMessageTimestamp = (iso) => {
+      if (!iso) return ""
+    
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return ""
+    
+      const now = new Date()
+    
+      const isSameDay =
+        date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate()
+    
+      if (isSameDay) {
+        return date.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true
+        })
+      }
+    
+      return date.toLocaleString([], {
+        month: "numeric",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      })
+    }
+
     const renderRoster = () => {
       rosterEl.innerHTML = ""
 
@@ -84,7 +115,7 @@ Hooks.RoomChannel = {
     const appendMessage = (msg) => {
       const div = document.createElement("div")
       
-      div.innerHTML = `<span class="text-zinc-500">${msg.at}</span> <b>${msg.name}</b>: ${msg.body}`
+      div.innerHTML = `<span class="text-xs text-zinc-500">${formatMessageTimestamp(msg.at)}</span> <b>${msg.name}</b>: ${msg.body}`
       messagesEl.appendChild(div)
       messagesEl.scrollTop = messagesEl.scrollHeight
     }
